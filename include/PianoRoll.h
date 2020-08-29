@@ -214,6 +214,7 @@ signals:
 	void ghostPatternSet(bool);
 	void semiToneMarkerMenuScaleSetEnabled(bool);
 	void semiToneMarkerMenuChordSetEnabled(bool);
+	void semiToneMarkerMenuRhythmSetEnabled(bool);
 
 
 private:
@@ -241,6 +242,7 @@ private:
 		stmaMarkAllOctaveSemiTones,
 		stmaMarkCurrentScale,
 		stmaMarkCurrentChord,
+		stmaMarkCurrentRhythm,
 		stmaCopyAllNotesOnKey
 	};
 
@@ -313,6 +315,7 @@ private:
 	ComboBoxModel m_noteLenModel;
 	ComboBoxModel m_scaleModel;
 	ComboBoxModel m_chordModel;
+	ComboBoxModel m_rhythmModel;
 
 	static const QVector<double> m_zoomLevels;
 	static const QVector<double> m_zoomYLevels;
@@ -509,6 +512,7 @@ private:
 	ComboBox * m_noteLenComboBox;
 	ComboBox * m_scaleComboBox;
 	ComboBox * m_chordComboBox;
+	ComboBox * m_rhythmComboBox;
 	QPushButton * m_clearGhostButton;
 
 };

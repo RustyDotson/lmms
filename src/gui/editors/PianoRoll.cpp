@@ -151,6 +151,7 @@ PianoRoll::PianoRoll() :
 	m_noteLenModel(),
 	m_scaleModel(),
 	m_chordModel(),
+	m_rhythmModel(),
 	m_pattern( NULL ),
 	m_currentPosition(),
 	m_recording( false ),
@@ -225,6 +226,7 @@ PianoRoll::PianoRoll() :
 	QAction* markAllOctaveSemitonesAction = new QAction( tr("Mark/unmark all corresponding octave semitones"), this );
 	QAction* markScaleAction = new QAction( tr("Mark current scale"), this );
 	QAction* markChordAction = new QAction( tr("Mark current chord"), this );
+	QAction* markRhythmAction = new QAction( tr("Mark current rhythm"), this );
 	QAction* unmarkAllAction = new QAction( tr("Unmark all"), this );
 	QAction* copyAllNotesAction = new QAction( tr("Select all notes on this key"), this);
 
@@ -232,19 +234,23 @@ PianoRoll::PianoRoll() :
 	connect( markAllOctaveSemitonesAction, &QAction::triggered, [this](){ markSemiTone(stmaMarkAllOctaveSemiTones); });
 	connect( markScaleAction, &QAction::triggered, [this](){ markSemiTone(stmaMarkCurrentScale); });
 	connect( markChordAction, &QAction::triggered, [this](){ markSemiTone(stmaMarkCurrentChord); });
+	connect( markRhythmAction, &QAction::triggered, [this](){ markSemiTone(stmaMarkCurrentRhythm); });
 	connect( unmarkAllAction, &QAction::triggered, [this](){ markSemiTone(stmaUnmarkAll); });
 	connect( copyAllNotesAction, &QAction::triggered, [this](){ markSemiTone(stmaCopyAllNotesOnKey); });
 
 	markScaleAction->setEnabled( false );
 	markChordAction->setEnabled( false );
+	markRhythmAction->setEnabled( false );
 
 	connect( this, SIGNAL(semiToneMarkerMenuScaleSetEnabled(bool)), markScaleAction, SLOT(setEnabled(bool)) );
 	connect( this, SIGNAL(semiToneMarkerMenuChordSetEnabled(bool)), markChordAction, SLOT(setEnabled(bool)) );
+	connect( this, SIGNAL(semiToneMarkerMenuRhythmSetEnabled(bool)), markRhythmAction, SLOT(setEnabled(bool)) );
 
 	m_semiToneMarkerMenu->addAction( markSemitoneAction );
 	m_semiToneMarkerMenu->addAction( markAllOctaveSemitonesAction );
 	m_semiToneMarkerMenu->addAction( markScaleAction );
 	m_semiToneMarkerMenu->addAction( markChordAction );
+	m_semiToneMarkerMenu->addAction( markRhythmAction );
 	m_semiToneMarkerMenu->addAction( unmarkAllAction );
 	m_semiToneMarkerMenu->addAction( copyAllNotesAction );
 
@@ -344,7 +350,7 @@ PianoRoll::PianoRoll() :
 	for (auto q : Quantizations) {
 		m_quantizeModel.addItem(QString("1/%1").arg(q));
 	}
-	m_quantizeModel.setValue( m_quantizeModel.findText( "1/16" ) );
+	m_quantizeModel.setValue( m_quantizeModel.findText( "1/32" ) );
 
 	connect( &m_quantizeModel, SIGNAL( dataChanged() ),
 					this, SLOT( quantizeChanged() ) );
@@ -405,6 +411,38 @@ PianoRoll::PianoRoll() :
 
 	// change can update m_semiToneMarkerMenu
 	connect( &m_chordModel, SIGNAL( dataChanged() ),
+					this, SLOT( updateSemiToneMarkerMenu() ) );
+
+	setFocusPolicy( Qt::StrongFocus );
+	setFocus();
+	setMouseTracking( true );
+
+	connect( &m_scaleModel, SIGNAL( dataChanged() ),
+					this, SLOT( updateSemiToneMarkerMenu() ) );
+
+	connect( Engine::getSong(), SIGNAL( timeSignatureChanged( int, int ) ),
+						this, SLOT( update() ) );
+
+	//connection for selecion from timeline
+	connect( m_timeLine, SIGNAL( regionSelectedFromPixels( int, int ) ),
+			this, SLOT( selectRegionFromPixels( int, int ) ) );
+
+	m_stepRecorder.initialize();
+	
+	// Set up rhythm model
+	m_rhythmModel.addItem( tr("No rhythm") );
+	for( const InstrumentFunctionNoteStacking::Chord& chord : chord_table )
+	{
+		if( ! chord.isScale() )
+		{
+			m_rhythmModel.addItem( chord.getName() );
+		}
+	}
+	
+	m_rhythmModel.setValue( 0 );
+	
+	// change can update m_semiToneMarkerMenu
+	connect( &m_rhythmModel, SIGNAL( dataChanged() ),
 					this, SLOT( updateSemiToneMarkerMenu() ) );
 
 	setFocusPolicy( Qt::StrongFocus );
@@ -4390,6 +4428,15 @@ PianoRollWindow::PianoRollWindow() :
 	m_chordComboBox->setModel( &m_editor->m_chordModel );
 	m_chordComboBox->setFixedSize( 105, ComboBox::DEFAULT_HEIGHT );
 	m_chordComboBox->setToolTip( tr( "Chord" ) );
+	
+	// setup rhythm-stuff
+	QLabel * rhythm_lbl = new QLabel( m_toolBar );
+	rhythm_lbl->setPixmap( embed::getIconPixmap( "chord" ) );
+
+	m_chordComboBox = new ComboBox( m_toolBar );
+	m_chordComboBox->setModel( &m_editor->m_rhythmModel );
+	m_chordComboBox->setFixedSize( 105, ComboBox::DEFAULT_HEIGHT );
+	m_chordComboBox->setToolTip( tr( "Chord" ) );
 
 	// -- Clear ghost pattern button
 	m_clearGhostButton = new QPushButton( m_toolBar );
@@ -4420,6 +4467,10 @@ PianoRollWindow::PianoRollWindow() :
 	zoomAndNotesToolBar->addSeparator();
 	zoomAndNotesToolBar->addWidget( chord_lbl );
 	zoomAndNotesToolBar->addWidget( m_chordComboBox );
+	
+	zoomAndNotesToolBar->addSeparator();
+	zoomAndNotesToolBar->addWidget( rhythm_lbl );
+	zoomAndNotesToolBar->addWidget( m_rhythmComboBox );
 
 	zoomAndNotesToolBar->addSeparator();
 	zoomAndNotesToolBar->addWidget( m_clearGhostButton );
